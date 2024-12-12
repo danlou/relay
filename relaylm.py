@@ -1,5 +1,6 @@
 # Code licensed under the Apache-2.0 License.
 # Author: Daniel Loureiro, December 2024 (@danielbloureiro)
+# More details at https://danlou.co/relay
 
 import sys, time, json, textwrap, readline  # built-ins
 
@@ -42,7 +43,7 @@ class RelayLM():
       \/_/ /_/   \/_____/   \/_____/   \/_/\/_/   \/_____/  v{self.__version__}
 
     This is a chat session with {self.model.name_or_path.split('/')[-1]}
-    You are <anon>, model is <user>. More details at https://danlou.co/relay
+    You are <anon>, model is <user>.
 
     [your message]
       Just type and press enter to send your message.
@@ -66,6 +67,17 @@ class RelayLM():
       Closes the application.
     """))
 
+  def init_context(self):
+    """Resets context to empty list."""
+    self.context = []
+
+  def get_last(self) -> dict:
+    """Returns last entry in added to context."""
+    if len(self.context) > 0:
+      return self.context[-1]
+    else:
+      return {}
+
   def message(self, role: str, content: str, show: bool = False):
     """Adds new entry to context. Prints (shows) content under conditions."""
     self.context.append({'role': self.nicks[role], 'content': content})
@@ -87,7 +99,12 @@ class RelayLM():
 
   def join(self, role: str, channel: str):
     """Joins the specified channel."""
-    self._empty_context()
+
+    if len(channel) == 0:
+        self._show(role='system', content="* Invalid: Missing channel name.")
+        return None
+
+    self.init_context()
     passive = self._alternate_role(role)
     self.message(role, f"/join #{channel}")
     self.message('system', f"* Now talking in #{channel}")
@@ -96,11 +113,21 @@ class RelayLM():
 
   def topic(self, role: str, text: str):
     """Sets topic for the channel."""
+
+    if len(text) == 0:
+        self._show(role='system', content="* Invalid: Missing topic text.")
+        return None
+
     self.message(role, f"/topic {text}")
     self.message('system', f"* Topic for #{self.channel} is: {text}")
 
   def cast(self, role: str, desc: str):
     """Sets bio (profile description) for the specified role."""
+
+    if len(desc) == 0:
+        self._show(role='system', content="* Invalid: Missing description.")
+        return None
+
     passive = self._alternate_role(role)
     self.message(role, f"/whois {self.nicks[passive]}")
     self.message('system', f"* {self.nicks[passive]}'s bio: {desc}")
@@ -204,10 +231,6 @@ class RelayLM():
           content = f"<{self.nicks['input']}> {content}"
       print(content)
 
-  def _empty_context(self):
-    """Resets context to empty list."""
-    self.context = []
-
   def _remove_last(self, n: int = 1):
     """Removes last entry from context."""
     if len(self.context) > 1:
@@ -236,13 +259,13 @@ class RelayLM():
       return '/message',  '...'  # silence marker
 
     if raw_string[0] != '/':
-      return '/message', raw_string
+      return '/message', raw_string.strip()
 
     tokens = raw_string.split(' ')
     cmd, arg = tokens[0], ''
     if len(tokens) > 1:
       arg = ' '.join(tokens[1:])
-    return cmd, arg
+    return cmd, arg.strip()
 
   def _generate(self, role: str = 'model') -> str:
     """Builds prompt, runs inference, and returns decoded response."""
@@ -298,7 +321,7 @@ def suggest_relay_model() -> dict:
 
   # defaults (quants are not supported without CUDA)
   model_info = {
-    'name': 'danlou/relay-v0.1-Mistral-Nemo-2407',
+    'model_name_or_path': 'danlou/relay-v0.1-Mistral-Nemo-2407',
     'device_map': 'auto',
     'torch_dtype': torch.float16,
   }
@@ -307,9 +330,9 @@ def suggest_relay_model() -> dict:
     model_info['device_map'] = 'cuda'
     model_info['torch_dtype'] = torch.bfloat16
   elif free_vram > 15_000_000_000:  # 16GB (Disk Space: 13GB)
-    model_info['name'] = 'danlou/relay-v0.1-Mistral-Nemo-2407-8bit'
+    model_info['model_name_or_path'] = 'danlou/relay-v0.1-Mistral-Nemo-2407-8bit'
   elif free_vram > 11_000_000_000:  # 12GB (Disk Space: 8.3GB)
-    model_info['name'] = 'danlou/relay-v0.1-Mistral-Nemo-2407-4bit'
+    model_info['model_name_or_path'] = 'danlou/relay-v0.1-Mistral-Nemo-2407-4bit'
 
   return model_info
 
@@ -321,15 +344,9 @@ if __name__ == "__main__":
 
   # override if provided as CLI arg
   if len(sys.argv) > 1:
-    model_info['name'] = sys.argv[1]
+    model_info['model_name_or_path'] = sys.argv[1]
     model_info['device_map'] = 'auto'
     model_info['torch_dtype'] = 'auto'
 
-  relay = RelayLM(
-    model_name_or_path=model_info['name'],
-    temperature=0.3,
-    device_map=model_info['device_map'],
-    torch_dtype=model_info['torch_dtype'],
-    verbosity=1
-  )
+  relay = RelayLM(**model_info, temperature=0.3, verbosity=1)
   relay.chat()
