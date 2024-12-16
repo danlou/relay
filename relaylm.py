@@ -17,7 +17,7 @@ class RelayLM():
     model_name_or_path: str, temperature: float = .3, verbosity: int = 0,
     device_map: str = 'auto', torch_dtype: torch.dtype | str = torch.float16
   ) -> None:
-    self.__version__ = "0.1.0"
+    self.__version__ = '0.1.1'
     self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
     self.model = AutoModelForCausalLM.from_pretrained(
       pretrained_model_name_or_path=model_name_or_path,
@@ -64,7 +64,7 @@ class RelayLM():
     /export
       Export conversation (context) to .jsonl file.
     /exit
-      Closes the application.
+      Close the application.
     """))
 
   def init_context(self):
@@ -88,14 +88,14 @@ class RelayLM():
     """Generates response from specified role for the current context."""
     self._show('system', f"* {self.nicks[role]} is typing ...")
     response = self._generate(role)
+    self._clear_last(n=1)
     self.message(role=role, content=response, show=True)
 
   def retry(self, role: str):
     """Regenerates response for specified role."""
-    self._clear_last()
-    self._show('system', f"* {self.nicks[role]} will retry response")
+    self._clear_last(n=2)
     self._remove_last()
-    self.respond(role='model')
+    self.respond(role=role)
 
   def join(self, role: str, channel: str):
     """Joins the specified channel."""
@@ -105,10 +105,10 @@ class RelayLM():
         return None
 
     self.init_context()
-    passive = self._alternate_role(role)
+    other = self._alternate_role(role)
     self.message(role, f"/join #{channel}")
     self.message('system', f"* Now talking in #{channel}")
-    self.message('system', f"* {self.nicks[passive]} has joined #{channel}")
+    self.message('system', f"* {self.nicks[other]} has joined #{channel}")
     self.channel = channel
 
   def topic(self, role: str, text: str):
@@ -128,16 +128,16 @@ class RelayLM():
         self._show(role='system', content="* Invalid: Missing description.")
         return None
 
-    passive = self._alternate_role(role)
-    self.message(role, f"/whois {self.nicks[passive]}")
-    self.message('system', f"* {self.nicks[passive]}'s bio: {desc}")
+    other = self._alternate_role(role)
+    self.message(role, f"/whois {self.nicks[other]}")
+    self.message('system', f"* {self.nicks[other]}'s bio: {desc}")
 
   def slap(self, role: str):
-    """Slaps other member (passive) with a large trout."""
-    passive = self._alternate_role(role)
-    announcement = (f"* {self.nicks[role]} slaps {self.nicks[passive]}"
+    """Slaps other with a large trout."""
+    other = self._alternate_role(role)
+    announcement = (f"* {self.nicks[role]} slaps {self.nicks[other]}"
                      " around a bit with a large trout")
-    self.message(role, f"/slap {self.nicks[passive]}")
+    self.message(role, f"/slap {self.nicks[other]}")
     self.message('system', announcement)
 
   def wildcard(self, role: str, cmd: str, arg: str):
